@@ -1,1 +1,2 @@
 npx lint-staged
+yarn test --findRelatedTests $(git diff --cached --name-only | grep -E '\.(ts|js)$')

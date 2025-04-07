@@ -14,6 +14,7 @@ A comprehensive JavaScript/TypeScript SDK for interacting with the Collab.Land A
 - [Debugging](#debugging)
 - [Environment Configuration](#environment-configuration)
 - [Examples](#examples)
+- [Testing](#testing)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -52,6 +53,31 @@ async function getAccounts() {
 }
 ```
 
+## 🧪 Testing
+
+This SDK includes a comprehensive test suite. To run the tests:
+
+```bash
+# Install dependencies
+yarn install
+
+# Run tests
+yarn test
+```
+
+### Environment Variables for Testing
+
+You can use a `.env` file to configure testing:
+
+```
+# .env file
+ACCOUNTKIT_API_KEY=your_api_key_here
+ACCOUNTKIT_ENVIRONMENT=QA  # or PROD
+DEBUG=accountkit:*  # Enable debug logs
+```
+
+A `.env.example` file is provided with the required variables.
+
 ## 📚 API Reference
 
 ### V1 API
@@ -69,7 +95,7 @@ const status = await accountKit.v1.getUserOperationStatus('0xUserOperationHash')
 const receipt = await accountKit.v1.getUserOperationReceipt(
   'your-tg-bot-token',
   '0xUserOperationHash',
-  84532 // Chain ID (Base Sepolia)
+  84532, // Chain ID (Base Sepolia)
 );
 // Returns detailed receipt with userOpHash, entryPoint, sender, logs and transaction details
 ```
@@ -79,7 +105,7 @@ const receipt = await accountKit.v1.getUserOperationReceipt(
 ```typescript
 // Get accounts for a Telegram bot
 const accounts = await accountKit.v1.getTelegramBotAccounts('your-tg-bot-token');
-// Returns: 
+// Returns:
 // {
 //   pkpAddress: "0xd3B7C2a20Ed45B33Ac1B6D3ACbA9Bcee258bDAb9",
 //   evm: [
@@ -97,7 +123,7 @@ const accounts = await accountKit.v1.getTelegramBotAccounts('your-tg-bot-token')
 const txResponse = await accountKit.v1.submitSolanaTransaction(
   'your-tg-bot-token',
   'base64-encoded-transaction',
-  'SOL' // or 'SOL_DEVNET'
+  'SOL', // or 'SOL_DEVNET'
 );
 // Returns transaction signature
 
@@ -105,7 +131,7 @@ const txResponse = await accountKit.v1.submitSolanaTransaction(
 const txDetails = await accountKit.v1.getSolanaTransactionResponse(
   'your-tg-bot-token',
   'transaction-signature',
-  'SOL'
+  'SOL',
 );
 // Returns detailed transaction data including token balances and logs
 
@@ -120,7 +146,7 @@ const evmOpResponse = await accountKit.v1.submitEvmUserOperation(
     callData: '0x...',
     // ...other fields
   },
-  84532 // Chain ID (Base Sepolia)
+  84532, // Chain ID (Base Sepolia)
 );
 // Returns user operation hash
 ```
@@ -153,10 +179,7 @@ const litActionResponse = await accountKit.v1.executeLitAction(
 
 ```typescript
 // Mint a Wow.XYZ token
-const mintResponse = await accountKit.v1.mintWowToken(
-  'your-tg-bot-token',
-  '0xRecipientAddress'
-);
+const mintResponse = await accountKit.v1.mintWowToken('your-tg-bot-token', '0xRecipientAddress');
 // Returns transaction hash and details
 ```
 
@@ -186,7 +209,7 @@ const accountDetails = await accountKit.v2.getSmartAccountDetails('user-id', 'di
 // Get accounts using platform authentication
 const platformAccounts = await accountKit.v2.getAccounts(
   'twitter', // Supports 'twitter', 'github', 'telegram'
-  'platform-access-token'
+  'platform-access-token',
 );
 // Returns similar account structure as above
 ```
@@ -206,7 +229,7 @@ const evmOpResponse = await accountKit.v2.submitEvmUserOperation(
     callData: '0x...',
     // ...other fields
   },
-  1 // Chain ID (Ethereum Mainnet)
+  1, // Chain ID (Ethereum Mainnet)
 );
 // Returns user operation hash
 
@@ -215,7 +238,7 @@ const solTxResponse = await accountKit.v2.submitSolanaTransaction(
   'github', // Supports 'twitter', 'github', 'telegram'
   'platform-access-token',
   'base64-encoded-transaction',
-  'SOL' // or 'SOL_DEVNET'
+  'SOL', // or 'SOL_DEVNET'
 );
 // Returns transaction signature
 ```
@@ -235,6 +258,7 @@ const accountKit = new AccountKit('your-api-key', Environment.PROD);
 For V2 API methods that require platform authentication, you need to provide:
 
 1. Platform identifier:
+
    - `twitter`: Twitter OAuth2 token
    - `github`: GitHub OAuth token
    - `telegram`: Telegram bot token
@@ -286,6 +310,7 @@ const accountKit = new AccountKit('your-api-key', Environment.PROD, {
 ```
 
 Debug output includes:
+
 - Request URL, method, headers (with sensitive data redacted), and body
 - Response status code, headers, and body
 - Any errors that occur during the request
@@ -305,6 +330,7 @@ const qaClient = new AccountKit('your-api-key', Environment.QA);
 ### Postman Variables
 
 When using the Postman collection, set these variables in your environment:
+
 - `CL_API_KEY`: Your Collab.Land API Key
 - `TG_BOT_TOKEN`: Your Telegram Bot Token
 - `PLATFORM`: The platform (e.g., "twitter", "github", "telegram")
@@ -317,13 +343,13 @@ When using the Postman collection, set these variables in your environment:
 const accountKit = new AccountKit('your-api-key', Environment.PROD, {
   // Custom timeout in milliseconds (default: 10000)
   timeout: 15000,
-  
+
   // Enable debug mode
   debug: true,
-  
+
   // Custom base URL (override the environment-based URL)
   baseUrl: 'https://custom-api.example.com',
-  
+
   // Additional headers to include in all requests
   headers: {
     'X-Custom-Header': 'custom-value',
@@ -354,7 +380,7 @@ const evmTxResponse = await accountKit.v2.submitEvmUserOperation(
   'twitter',
   twitterAccessToken,
   userOpPayload,
-  1 // Ethereum Mainnet
+  1, // Ethereum Mainnet
 );
 
 // Submit a Solana transaction
@@ -362,7 +388,7 @@ const solTxResponse = await accountKit.v2.submitSolanaTransaction(
   'twitter',
   twitterAccessToken,
   serializedTxBase64,
-  'SOL'
+  'SOL',
 );
 ```
 
@@ -373,17 +399,10 @@ const solTxResponse = await accountKit.v2.submitSolanaTransaction(
 const accounts = await accountKit.v1.getTelegramBotAccounts(telegramBotToken);
 
 // Execute a Lit Action
-const litResponse = await accountKit.v1.executeLitAction(
-  telegramBotToken,
-  litActionCode,
-  jsParams
-);
+const litResponse = await accountKit.v1.executeLitAction(telegramBotToken, litActionCode, jsParams);
 
 // Mint a Wow token
-const mintResponse = await accountKit.v1.mintWowToken(
-  telegramBotToken,
-  recipientAddress
-);
+const mintResponse = await accountKit.v1.mintWowToken(telegramBotToken, recipientAddress);
 ```
 
 ## 🤝 Contributing

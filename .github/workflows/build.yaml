@@ -31,6 +31,13 @@ jobs:
 
       - name: Lint
         run: yarn lint
+        
+      - name: Test
+        run: yarn test
+        env:
+          ACCOUNTKIT_API_KEY: test-api-key
+          ACCOUNTKIT_ENVIRONMENT: QA
+          DEBUG: accountkit:*
 
       - name: Build
         run: yarn build
