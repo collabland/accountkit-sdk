@@ -57,20 +57,24 @@
   "keywords": [
     "sdk",
     "api",
-    "accountkit"
+    "accountkit",
+    "erc4337",
+    "delegations",
+    "smart accounts",
+    "blockchain"
   ],
-  "author": "",
+  "author": "Collab.Land",
   "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/accountkit-sdk.git"
+    "url": "git+https://github.com/collabland/accountkit-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/accountkit-sdk/issues"
+    "url": "https://github.com/collabland/accountkit-sdk/issues"
   },
-  "homepage": "https://github.com/yourusername/accountkit-sdk#readme",
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "homepage": "https://github.com/collabland/accountkit-sdk#readme",
+  "packageManager": "yarn@1.22.22"
 }

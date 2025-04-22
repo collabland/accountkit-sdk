@@ -1,2 +1,17 @@
-npx lint-staged
-yarn test --findRelatedTests $(git diff --cached --name-only | grep -E '\.(ts|js)$')
+# Run lint-staged first (e.g., for formatting, linting)
+npx lint-staged || exit 1
+
+# Check if any .ts or .js files are staged for commit
+# We use grep -q for a quiet check (no output), just the exit code matters
+if git diff --cached --name-only --diff-filter=ACM | grep -qE '\.(ts|js)$'; then
+  echo "Found staged .ts/.js files. Running related tests..."
+  # Get the list of staged files again and pass them to the test command
+  staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|js)$')
+  # Use xargs to pass the files correctly to the test command
+  echo "$staged_files" | xargs yarn test --findRelatedTests
+else
+  echo "No staged .ts/.js files found. Skipping related tests."
+fi
+
+# Exit with the status of the last command (either lint-staged or yarn test)
+exit $?
