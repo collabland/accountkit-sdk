@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import dotenv from 'dotenv';
 import { AccountKit } from '../../client';
-import { Environment } from '../../types';
+import { Environment, Platform } from '../../types';
 
 // Load environment variables
 dotenv.config();
@@ -38,7 +38,7 @@ describe('AccountKitV2Client.calculateAccountAddress', () => {
 
   it('should call the correct endpoint with correct parameters for Twitter', async () => {
     // Arrange
-    const platform = 'twitter';
+    const platform = Platform.TWITTER;
     const userId = '1868670033850941440'; // Twitter numeric user ID
 
     const mockResponse = {
@@ -89,7 +89,7 @@ describe('AccountKitV2Client.calculateAccountAddress', () => {
 
   it('should call the correct endpoint with correct parameters for GitHub', async () => {
     // Arrange
-    const platform = 'github';
+    const platform = Platform.GITHUB;
     const userId = '54375111'; // GitHub numeric user ID
 
     const mockResponse = {
@@ -140,7 +140,7 @@ describe('AccountKitV2Client.calculateAccountAddress', () => {
 
   it('should handle API errors correctly', async () => {
     // Arrange
-    const platform = 'twitter';
+    const platform = Platform.TWITTER;
     const userId = 'invalid-user';
 
     const errorResponse = {
@@ -165,7 +165,7 @@ describe('AccountKitV2Client.calculateAccountAddress', () => {
 
   it('should make requests with the correct headers', async () => {
     // Arrange
-    const platform = 'twitter';
+    const platform = Platform.TWITTER;
     const userId = '1868670033850941440';
 
     const mockResponse = {

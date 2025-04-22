@@ -82,165 +82,154 @@ A `.env.example` file is provided with the required variables.
 
 ### V1 API
 
-Access V1 API methods through the `v1` property of the AccountKit instance.
+Access V1 API methods through the `v1` property of the AccountKit instance. All V1 methods require a Telegram Bot Token for authentication passed via request headers, which the SDK handles automatically if configured.
 
 #### User Operations
 
 ```typescript
-// Get user operation status
-const status = await accountKit.v1.getUserOperationStatus('0xUserOperationHash');
-// Returns status, receipt, logs and transaction details
-
 // Get user operation receipt (for Telegram bot)
-const receipt = await accountKit.v1.getUserOperationReceipt(
-  'your-tg-bot-token',
+// Note: Status is inferred from the receipt details.
+const receipt = await accountKit.v1.telegramBotGetUserOperationReceipt(
   '0xUserOperationHash',
-  84532, // Chain ID (Base Sepolia)
+  84532, // Chain ID (e.g., Base Sepolia)
 );
-// Returns detailed receipt with userOpHash, entryPoint, sender, logs and transaction details
+// Returns detailed receipt: UserOperationReceipt
+// { userOpHash, entryPoint, sender, nonce, paymaster, actualGasUsed, actualGasCost, success, receipt, logs }
 ```
 
 #### Telegram Bot Integration
 
 ```typescript
-// Get accounts for a Telegram bot
-const accounts = await accountKit.v1.getTelegramBotAccounts('your-tg-bot-token');
-// Returns:
+// Get smart accounts for a Telegram bot user
+const accounts = await accountKit.v1.telegramBotGetSmartAccounts();
+// Returns GetSmartAccountAddressResponse:
 // {
-//   pkpAddress: "0xd3B7C2a20Ed45B33Ac1B6D3ACbA9Bcee258bDAb9",
-//   evm: [
-//     { chainId: 84532, address: "0xd0D7De4D88843F6f66D0f7053f4b79c6AeAF8F9F" },
-//     { chainId: 59141, address: "0xd0D7De4D88843F6f66D0f7053f4b79c6AeAF8F9F" },
-//     // More chains...
-//   ],
-//   solana: [
-//     { network: "SOL", address: "AcFn89zzBXQFN3Kx62MXXGSEpivwzBBVhSek2RiT56Ao" },
-//     { network: "SOL_DEVNET", address: "AcFn89zzBXQFN3Kx62MXXGSEpivwzBBVhSek2RiT56Ao" }
-//   ]
+//   pkpAddress: string,
+//   evm: { chainId: number, address: string }[],
+//   solana: { network: 'SOL' | 'SOL_DEVNET', address: string }[]
 // }
 
-// Submit a Solana transaction
-const txResponse = await accountKit.v1.submitSolanaTransaction(
-  'your-tg-bot-token',
-  'base64-encoded-transaction',
-  'SOL', // or 'SOL_DEVNET'
+// Submit a Solana transaction via Telegram Bot Auth
+const txResponse = await accountKit.v1.telegramBotSubmitSolanaTransaction(
+  'base64-encoded-transaction', // serializedTransactionBase64
+  SolanaNetwork.SOLANA_MAINNET, // or SolanaNetwork.SOLANA_DEVNET
 );
-// Returns transaction signature
+// Returns SubmitSolanaTransactionResponse: { txSignature: string }
 
-// Get Solana transaction response
-const txDetails = await accountKit.v1.getSolanaTransactionResponse(
-  'your-tg-bot-token',
-  'transaction-signature',
-  'SOL',
+// Get Solana transaction response via Telegram Bot Auth
+const txDetails = await accountKit.v1.telegramBotGetSolanaTransactionResponse(
+  'transaction-signature', // txSignature
+  SolanaNetwork.SOLANA_MAINNET,
 );
-// Returns detailed transaction data including token balances and logs
+// Returns GetSolanaTransactionResponse: { response: Record<string, any> }
 
-// Submit an EVM user operation
-const evmOpResponse = await accountKit.v1.submitEvmUserOperation(
-  'your-tg-bot-token',
+// Submit an EVM user operation via Telegram Bot Auth
+const evmOpResponse = await accountKit.v1.telegramBotSubmitEvmUserOperation(
   {
-    // User operation object
-    sender: '0x...',
-    nonce: '0x...',
-    initCode: '0x...',
-    callData: '0x...',
-    // ...other fields
+    // User operation object: SubmitEvmUserOpRequest
+    target: '0xContractAddress',
+    callData: '0xFunctionSelectorAndArgs',
+    value: '0x0',
   },
-  84532, // Chain ID (Base Sepolia)
+  84532, // Chain ID
 );
-// Returns user operation hash
+// Returns SubmitEvmUserOpResponse: { userOperationHash: string, chainId: number }
 ```
 
 #### Lit Protocol Integration
 
 ```typescript
-// Execute a Lit Action using PKP
-const litActionResponse = await accountKit.v1.executeLitAction(
-  'your-tg-bot-token',
-  'const response = await Lit.Actions.signEcdsa({ toSign, publicKey, sigName });', // Lit action code
+// Execute a Lit Action using PKP via Telegram Bot Auth
+const litActionResponse = await accountKit.v1.telegramBotExecuteLitAction(
   {
-    // JS parameters
-    toSign: new Uint8Array([...]),
-    publicKey: '0x...',
-    sigName: 'sig1'
+    // ExecuteLitActionRequest
+    actionIpfs: 'QmActionCid', // IPFS CID of the Lit Action
+    actionJsParams: {
+      /* JS parameters for the action */
+    },
   },
-  {
-    // Optional auth sig
-    sig: '0x...',
-    derivedVia: 'web3.eth.personal.sign',
-    signedMessage: '...',
-    address: '0x...'
-  }
+  // Optional authSig can be passed as a second argument
 );
-// Returns execution results from the Lit Action
+// Returns ExecuteLitActionResponse: { response: Record<string, any> }
 ```
 
 #### Wow Token Integration
 
 ```typescript
-// Mint a Wow.XYZ token
-const mintResponse = await accountKit.v1.mintWowToken('your-tg-bot-token', '0xRecipientAddress');
-// Returns transaction hash and details
+// Mint a Wow.XYZ token via Telegram Bot Auth
+const mintResponse = await accountKit.v1.telegramBotMintWowToken({
+  // MintWowTokenRequest
+  recipient: '0xRecipientAddress',
+  name: 'MyToken',
+  symbol: 'MTK',
+  metadata: {
+    description: 'Token description',
+    website_link: 'https://example.com',
+    twitter: 'mytwitter',
+    discord: 'https://discord.gg/invite',
+    telegram: 'mytelegrambot',
+    nsfw: false,
+    image: 'ipfs://QmImageCid',
+  },
+});
+// Returns MintWowTokenResponse: { response: Record<string, any> }
 ```
 
 ### V2 API
 
-Access V2 API methods through the `v2` property of the AccountKit instance.
+Access V2 API methods through the `v2` property of the AccountKit instance. V2 methods primarily use platform access tokens (e.g., Twitter, GitHub) for authentication.
 
 #### Account Management
 
 ```typescript
-// Calculate account address counterfactually
-const accountAddress = await accountKit.v2.calculateAccountAddress('twitter', '1234567890');
-// Returns:
-// {
-//   pkpAddress: "0xBeCb7fEFd3Ec5bF831d09bE9a9C2650748AC5FC6",
-//   evm: [
-//     { chainId: 84532, address: "0x99518fBaa6adFb877A48BA1fe64a46F9a19F1b65" },
-//     { chainId: 59141, address: "0x99518fBaa6adFb877A48BA1fe64a46F9a19F1b65" },
-//     // More chains...
-//   ],
-//   solana: []
-// }
-
-// Get smart account details
-const accountDetails = await accountKit.v2.getSmartAccountDetails('user-id', 'discord');
-
-// Get accounts using platform authentication
-const platformAccounts = await accountKit.v2.getAccounts(
-  'twitter', // Supports 'twitter', 'github', 'telegram'
+// Get smart account details using platform authentication
+const accountDetails = await accountKit.v2.getSmartAccountDetails(
+  Platform.TWITTER, // or Platform.GITHUB, Platform.TELEGRAM
   'platform-access-token',
 );
-// Returns similar account structure as above
+// Returns GetSmartAccountAddressResponse (same structure as V1)
+
+// Calculate account address counterfactually
+const accountAddress = await accountKit.v2.calculateAccountAddress(
+  Platform.TWITTER, // Platform enum ('twitter', 'github', etc.)
+  'platform-user-id',
+);
+// Returns CalculateAccountAddressResponse (structure might vary, check types.ts)
+// Example structure shown previously is from V1 - V2 might differ.
+// Generally contains pkpAddress and associated EVM/Solana addresses.
 ```
 
-#### Transaction Submission
+#### User Operations (Platform Auth)
 
 ```typescript
-// Submit an EVM user operation with platform auth
+// Submit an EVM user operation using platform authentication
 const evmOpResponse = await accountKit.v2.submitEvmUserOperation(
-  'twitter', // Supports 'twitter', 'github', 'telegram'
+  Platform.TWITTER,
   'platform-access-token',
   {
-    // User operation object
-    sender: '0x...',
-    nonce: '0x...',
-    initCode: '0x...',
-    callData: '0x...',
-    // ...other fields
+    // PlatformSubmitUserOperationsRequest
+    userOps: [
+      {
+        // SubmitEvmUserOpRequest
+        target: '0xContractAddress',
+        callData: '0xFunctionSelectorAndArgs',
+        value: '0x0',
+      },
+      // Can include multiple user operations
+    ],
   },
-  1, // Chain ID (Ethereum Mainnet)
+  84532, // Chain ID
 );
-// Returns user operation hash
+// Returns SubmitEvmUserOpResponse: { userOperationHash: string, chainId: number }
 
-// Submit a Solana transaction with platform auth
-const solTxResponse = await accountKit.v2.submitSolanaTransaction(
-  'github', // Supports 'twitter', 'github', 'telegram'
+// Submit a Solana transaction using platform authentication
+const solanaTxResponse = await accountKit.v2.submitSolanaTransaction(
+  Platform.GITHUB,
   'platform-access-token',
-  'base64-encoded-transaction',
-  'SOL', // or 'SOL_DEVNET'
+  SolanaNetwork.SOLANA_DEVNET,
+  'base64-encoded-transaction', // serializedTransactionBase64
 );
-// Returns transaction signature
+// Returns SubmitSolanaTransactionResponse: { txSignature: string }
 ```
 
 ## 🔐 Authentication
@@ -301,114 +290,56 @@ try {
 
 ## 🐞 Debugging
 
-Enable debug mode to see detailed logs of API requests and responses:
+Set the `DEBUG` environment variable to enable debug logs:
 
-```typescript
-const accountKit = new AccountKit('your-api-key', Environment.PROD, {
-  debug: true,
-});
+```bash
+# Enable all AccountKit SDK debug logs
+DEBUG=accountkit:* node your-script.js
+
+# Enable only specific modules
+DEBUG=accountkit:client node your-script.js
 ```
 
-Debug output includes:
-
-- Request URL, method, headers (with sensitive data redacted), and body
-- Response status code, headers, and body
-- Any errors that occur during the request
-
-## 🌐 Environment Configuration
-
-Use the `Environment` enum to specify the target environment:
+You can also enable debugging when initializing the SDK:
 
 ```typescript
-// Production environment
-const prodClient = new AccountKit('your-api-key', Environment.PROD);
-
-// QA environment
-const qaClient = new AccountKit('your-api-key', Environment.QA);
-```
-
-### Postman Variables
-
-When using the Postman collection, set these variables in your environment:
-
-- `CL_API_KEY`: Your Collab.Land API Key
-- `TG_BOT_TOKEN`: Your Telegram Bot Token
-- `PLATFORM`: The platform (e.g., "twitter", "github", "telegram")
-- `PLATFORM_ACCESS_TOKEN`: OAuth2 access token or Telegram bot token
-- `SOL_NETWORK`: Solana network ("SOL" or "SOL_DEVNET")
-
-### Additional Configuration Options
-
-```typescript
-const accountKit = new AccountKit('your-api-key', Environment.PROD, {
-  // Custom timeout in milliseconds (default: 10000)
-  timeout: 15000,
-
-  // Enable debug mode
-  debug: true,
-
-  // Custom base URL (override the environment-based URL)
-  baseUrl: 'https://custom-api.example.com',
-
-  // Additional headers to include in all requests
-  headers: {
-    'X-Custom-Header': 'custom-value',
-  },
+const accountKit = new AccountKit(apiKey, Environment.PROD, {
+  debug: true, // Enables debug logs
 });
 ```
 
 ## 📝 Examples
 
-### Creating and Managing Web3 Accounts
+The SDK includes several examples to help you get started:
 
-```typescript
-// Calculate a new account address
-const accountAddress = await accountKit.v2.calculateAccountAddress('twitter', twitterUserId);
+### Calculate Account Address
 
-// Get account details
-const accountDetails = await accountKit.v2.getSmartAccountDetails(userId, 'discord');
+The `/src/examples/v2/calculate-account-address` directory contains a complete example showing how to calculate account addresses for users on Twitter and GitHub.
 
-// Get all accounts associated with a platform user
-const accounts = await accountKit.v2.getAccounts('twitter', twitterAccessToken);
+To run this example:
+
+```bash
+# Copy and edit the environment file with your API key
+cp src/examples/v2/calculate-account-address/.env.example src/examples/v2/calculate-account-address/.env
+
+# Run the example
+node src/examples/v2/calculate-account-address/index.js
 ```
 
-### Submitting Transactions
+## 🧪 Testing
 
-```typescript
-// Submit an EVM transaction
-const evmTxResponse = await accountKit.v2.submitEvmUserOperation(
-  'twitter',
-  twitterAccessToken,
-  userOpPayload,
-  1, // Ethereum Mainnet
-);
+Run the test suite using:
 
-// Submit a Solana transaction
-const solTxResponse = await accountKit.v2.submitSolanaTransaction(
-  'twitter',
-  twitterAccessToken,
-  serializedTxBase64,
-  'SOL',
-);
+```bash
+yarn test
 ```
 
-### Telegram Bot Integration
+Generate test coverage report:
 
-```typescript
-// Get accounts for a Telegram bot user
-const accounts = await accountKit.v1.getTelegramBotAccounts(telegramBotToken);
-
-// Execute a Lit Action
-const litResponse = await accountKit.v1.executeLitAction(telegramBotToken, litActionCode, jsParams);
-
-// Mint a Wow token
-const mintResponse = await accountKit.v1.mintWowToken(telegramBotToken, recipientAddress);
+```bash
+yarn test:coverage
 ```
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
+## 📖 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

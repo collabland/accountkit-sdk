@@ -1,4 +1,5 @@
 import debug from 'debug';
+import util from 'util';
 
 /**
  * Logger utility for AccountKit SDK
@@ -32,7 +33,8 @@ export class Logger {
    */
   trace(message: string, data?: unknown): void {
     const logger = debug(`${this.namespace}:trace`);
-    logger(message, data ? JSON.stringify(data, this.safeStringify) : '');
+    // Use util.inspect for safer logging of complex objects
+    logger(message, data ? util.inspect(data, { depth: null, colors: true }) : '');
   }
 
   /**
@@ -42,7 +44,8 @@ export class Logger {
    */
   debug(message: string, data?: unknown): void {
     const logger = debug(`${this.namespace}:debug`);
-    logger(message, data ? JSON.stringify(data, this.safeStringify) : '');
+    // Use util.inspect for safer logging of complex objects
+    logger(message, data ? util.inspect(data, { depth: null, colors: true }) : '');
   }
 
   /**
@@ -52,7 +55,8 @@ export class Logger {
    */
   info(message: string, data?: unknown): void {
     const logger = debug(`${this.namespace}:info`);
-    logger(message, data ? JSON.stringify(data, this.safeStringify) : '');
+    // Use util.inspect for safer logging of complex objects
+    logger(message, data ? util.inspect(data, { depth: null, colors: true }) : '');
   }
 
   /**
@@ -62,7 +66,8 @@ export class Logger {
    */
   warn(message: string, data?: unknown): void {
     const logger = debug(`${this.namespace}:warn`);
-    logger(message, data ? JSON.stringify(data, this.safeStringify) : '');
+    // Use util.inspect for safer logging of complex objects
+    logger(message, data ? util.inspect(data, { depth: null, colors: true }) : '');
   }
 
   /**
@@ -72,20 +77,7 @@ export class Logger {
    */
   error(message: string, data?: unknown): void {
     const logger = debug(`${this.namespace}:error`);
-    logger(message, data ? JSON.stringify(data, this.safeStringify) : '');
-  }
-
-  /**
-   * Safe JSON stringify that handles circular references
-   */
-  private safeStringify(key: string, value: unknown): unknown {
-    const cache: unknown[] = [];
-    if (typeof value === 'object' && value !== null) {
-      if (cache.includes(value)) {
-        return '[Circular]';
-      }
-      cache.push(value);
-    }
-    return value;
+    // Use util.inspect for safer logging of complex objects
+    logger(message, data ? util.inspect(data, { depth: null, colors: true }) : '');
   }
 }

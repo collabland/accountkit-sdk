@@ -1,5 +1,26 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { ApiResponse, ClientConfig, Environment } from './types';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, isAxiosError } from 'axios';
+import {
+  AnyType,
+  ApiResponse,
+  CalculateAccountAddressRequest,
+  CalculateAccountAddressResponse,
+  ClientConfig,
+  Environment,
+  ExecuteLitActionRequest,
+  ExecuteLitActionResponse,
+  GetSmartAccountAddressResponse,
+  GetSolanaTransactionResponse,
+  MintWowTokenRequest,
+  MintWowTokenResponse,
+  Platform,
+  PlatformSubmitUserOperationsRequest,
+  SolanaNetwork,
+  SubmitEvmUserOpRequest,
+  SubmitEvmUserOpResponse,
+  SubmitSolanaTransactionRequest,
+  SubmitSolanaTransactionResponse,
+  UserOperationReceipt,
+} from './types';
 import { Logger } from './utils/logger';
 
 /**
@@ -10,8 +31,10 @@ export class BaseClient {
   protected baseUrl: string;
   protected client: AxiosInstance;
   protected logger: Logger;
+  protected config: ClientConfig;
 
   constructor(config: ClientConfig) {
+    this.config = config;
     this.apiKey = config.apiKey;
     this.logger = new Logger('accountkit', config.debug || false);
 
@@ -28,7 +51,7 @@ export class BaseClient {
     // Initialize Axios client
     this.client = axios.create({
       baseURL: this.baseUrl,
-      timeout: config.timeout || 10000,
+      timeout: config.timeout || 60000,
       headers: {
         'Content-Type': 'application/json',
         'X-API-KEY': config.apiKey,
@@ -47,7 +70,7 @@ export class BaseClient {
     // Log requests
     this.client.interceptors.request.use(
       request => {
-        this.logger.trace('API Request', {
+        this.logger.trace('⏳ API Request:', {
           method: request.method,
           url: request.url,
           headers: this.redactSensitiveHeaders(request.headers),
@@ -56,7 +79,11 @@ export class BaseClient {
         return request;
       },
       error => {
-        this.logger.error('Request Error', error);
+        if (isAxiosError(error)) {
+          this.logger.error('⚠️ Request Error: ', error.toJSON());
+        } else {
+          this.logger.error('⚠️ Request Error: ', error);
+        }
         return Promise.reject(error);
       },
     );
@@ -64,7 +91,7 @@ export class BaseClient {
     // Log responses
     this.client.interceptors.response.use(
       response => {
-        this.logger.trace('API Response', {
+        this.logger.trace('🥳 API Response: ', {
           status: response.status,
           headers: response.headers,
           data: response.data,
@@ -72,7 +99,11 @@ export class BaseClient {
         return response;
       },
       error => {
-        this.logger.error('Response Error', error.response || error);
+        if (isAxiosError(error)) {
+          this.logger.error('⚠️ Response Error: ', error.toJSON());
+        } else {
+          this.logger.error('⚠️ Response Error: ', error);
+        }
         return Promise.reject(error);
       },
     );
@@ -82,12 +113,16 @@ export class BaseClient {
    * Redact sensitive headers for logging
    */
   private redactSensitiveHeaders(headers: Record<string, unknown>): Record<string, unknown> {
-    const sensitiveHeaders = ['authorization', 'x-api-key'];
+    // Combine values from environment and config headers for redaction comparison
+    const sensitiveValues = [
+      ...Object.values(process.env),
+      ...Object.values(this.config.headers ?? {}),
+    ];
     const redactedHeaders = { ...headers };
 
-    for (const header of sensitiveHeaders) {
-      if (redactedHeaders[header]) {
-        redactedHeaders[header] = '********';
+    for (const [key, value] of Object.entries(headers)) {
+      if (sensitiveValues.includes(value as string)) {
+        redactedHeaders[key] = '********';
       }
     }
 
@@ -105,39 +140,39 @@ export class BaseClient {
   /**
    * Make a POST request
    */
-  public async post<T>(
+  public async post<REQ, RES>(
     path: string,
-    data?: Record<string, unknown>,
-    config?: AxiosRequestConfig,
-  ): Promise<ApiResponse<T>> {
-    const response = await this.client.post<T>(path, data, config);
+    data: REQ,
+    config?: AxiosRequestConfig<REQ>,
+  ): Promise<ApiResponse<RES>> {
+    const response = await this.client.post<RES, AxiosResponse<RES>, REQ>(path, data, config);
     return this.formatResponse(response);
   }
 
   /**
    * Make a PUT request
    */
-  public async put<T>(
+  public async put<REQ, RES>(
     path: string,
-    data?: Record<string, unknown>,
-    config?: AxiosRequestConfig,
-  ): Promise<ApiResponse<T>> {
-    const response = await this.client.put<T>(path, data, config);
+    data: REQ,
+    config?: AxiosRequestConfig<REQ>,
+  ): Promise<ApiResponse<RES>> {
+    const response = await this.client.put<RES, AxiosResponse<RES>, REQ>(path, data, config);
     return this.formatResponse(response);
   }
 
   /**
    * Make a DELETE request
    */
-  public async delete<T>(path: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    const response = await this.client.delete<T>(path, config);
+  public async delete<RES>(path: string, config?: AxiosRequestConfig): Promise<ApiResponse<RES>> {
+    const response = await this.client.delete<RES, AxiosResponse<RES>>(path, config);
     return this.formatResponse(response);
   }
 
   /**
    * Format the Axios response into our standard API response
    */
-  private formatResponse<T>(response: AxiosResponse<T>): ApiResponse<T> {
+  private formatResponse<RES>(response: AxiosResponse<RES>): ApiResponse<RES> {
     return {
       data: response.data,
       status: response.status,
@@ -155,23 +190,14 @@ export class AccountKitV1Client extends BaseClient {
   }
 
   /**
-   * Get status of a user operation
-   * @param userOpHash User operation hash
-   */
-  public async getUserOperationStatus(
-    userOpHash: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.get<Record<string, unknown>>(`/accountkit/v1/userOps/${userOpHash}/status`);
-  }
-
-  /**
-   * Get accounts for a Telegram bot user
+   * (Telegram Bot Auth) Get accounts for a Telegram bot user
    * @param botToken Telegram bot token
+   * @returns The smart account addresses of the Telegram bot user
    */
-  public async getTelegramBotAccounts(
+  public async telegramBotGetSmartAccounts(
     botToken: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.get<Record<string, unknown>>('/accountkit/v1/telegrambot/accounts', {
+  ): Promise<ApiResponse<GetSmartAccountAddressResponse>> {
+    return this.get<GetSmartAccountAddressResponse>('/accountkit/v1/telegrambot/accounts', {
       headers: {
         'X-TG-BOT-TOKEN': botToken,
       },
@@ -179,136 +205,152 @@ export class AccountKitV1Client extends BaseClient {
   }
 
   /**
-   * Submit a Solana transaction
+   * (Telegram Bot Auth) Submit a Solana transaction
    * @param botToken Telegram bot token
    * @param serializedTransactionBase64 Base64 encoded serialized transaction
    * @param network Solana network ('SOL' or 'SOL_DEVNET')
    */
-  public async submitSolanaTransaction(
+  public async telegramBotSubmitSolanaTransaction(
     botToken: string,
     serializedTransactionBase64: string,
-    network: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.post<Record<string, unknown>>(
-      `/accountkit/v1/telegrambot/solana/submitTransaction?network=${network}`,
+    network: SolanaNetwork,
+  ): Promise<ApiResponse<SubmitSolanaTransactionResponse>> {
+    return this.post<SubmitSolanaTransactionRequest, SubmitSolanaTransactionResponse>(
+      `/accountkit/v1/telegrambot/solana/submitTransaction`,
       { serializedTransactionBase64 },
       {
         headers: {
           'X-TG-BOT-TOKEN': botToken,
         },
-      },
-    );
-  }
-
-  /**
-   * Get Solana transaction response
-   * @param botToken Telegram bot token
-   * @param signature Transaction signature
-   * @param network Solana network ('SOL' or 'SOL_DEVNET')
-   */
-  public async getSolanaTransactionResponse(
-    botToken: string,
-    signature: string,
-    network: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.get<Record<string, unknown>>(
-      `/accountkit/v1/telegrambot/solana/transactions/${signature}?network=${network}`,
-      {
-        headers: {
-          'X-TG-BOT-TOKEN': botToken,
+        params: {
+          network,
         },
       },
     );
   }
 
   /**
-   * Submit an EVM user operation
+   * (Telegram Bot Auth) Get Solana transaction response
+   * @param botToken Telegram bot token
+   * @param signature Transaction signature
+   * @param network Solana network ('SOL' or 'SOL_DEVNET')
+   */
+  public async telegramBotGetSolanaTransactionResponse(
+    botToken: string,
+    signature: string,
+    network: SolanaNetwork,
+  ): Promise<ApiResponse<GetSolanaTransactionResponse>> {
+    return this.get<GetSolanaTransactionResponse>(
+      `/accountkit/v1/telegrambot/solana/transactionResponse`,
+      {
+        headers: {
+          'X-TG-BOT-TOKEN': botToken,
+        },
+        params: {
+          network,
+          txSignatureBase64: signature,
+        },
+      },
+    );
+  }
+
+  /**
+   * (Telegram Bot Auth) Submit an EVM user operation
    * @param botToken Telegram bot token
    * @param userOp User operation object
    * @param chainId EVM chain ID
    */
-  public async submitEvmUserOperation(
+  public async telegramBotSubmitEvmUserOperation(
     botToken: string,
-    userOp: Record<string, unknown>,
+    userOp: SubmitEvmUserOpRequest,
     chainId: number,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.post<Record<string, unknown>>(
-      `/accountkit/v1/telegrambot/evm/submitUserOperation?chainId=${chainId}`,
+  ): Promise<ApiResponse<SubmitEvmUserOpResponse>> {
+    return this.post<SubmitEvmUserOpRequest, SubmitEvmUserOpResponse>(
+      `/accountkit/v1/telegrambot/evm/submitUserOperation`,
       userOp,
       {
         headers: {
           'X-TG-BOT-TOKEN': botToken,
         },
+        params: {
+          chainId,
+        },
       },
     );
   }
 
   /**
-   * Get EVM user operation receipt
+   * (Telegram Bot Auth) Get EVM user operation receipt
    * @param botToken Telegram bot token
    * @param userOpHash User operation hash
    * @param chainId EVM chain ID
    */
-  public async getUserOperationReceipt(
+  public async telegramBotGetEvmUserOperationReceipt(
     botToken: string,
     userOpHash: string,
     chainId: number,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.get<Record<string, unknown>>(
-      `/accountkit/v1/telegrambot/evm/userOperationReceipt?chainId=${chainId}&userOperationHash=${userOpHash}`,
-      {
-        headers: {
-          'X-TG-BOT-TOKEN': botToken,
-        },
+  ): Promise<ApiResponse<UserOperationReceipt>> {
+    return this.get<UserOperationReceipt>(`/accountkit/v1/telegrambot/evm/userOperationReceipt`, {
+      headers: {
+        'X-TG-BOT-TOKEN': botToken,
       },
-    );
+      params: {
+        chainId,
+        userOperationHash: userOpHash,
+      },
+    });
   }
 
   /**
-   * Execute a Lit Action using PKP
+   * (Telegram Bot Auth) Execute a Lit Action using PKP
    * @param botToken Telegram bot token
-   * @param litActionCode Lit Action JavaScript code
-   * @param jsParams JavaScript parameters for the Lit Action
-   * @param authSig Authentication signature for the Lit Action
+   * @param actionIpfs Lit Action IPFS hash
+   * @param actionJsParams JavaScript parameters for the Lit Action
+   * @param chainId EVM chain ID
    */
   public async executeLitAction(
     botToken: string,
-    litActionCode: string,
-    jsParams: Record<string, unknown>,
-    authSig?: Record<string, unknown>,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.post<Record<string, unknown>>(
-      '/accountkit/v1/telegrambot/lit/executeAction',
+    actionIpfs: string,
+    actionJsParams: Record<string, AnyType>,
+    chainId: number,
+  ): Promise<ApiResponse<ExecuteLitActionResponse>> {
+    return this.post<ExecuteLitActionRequest, ExecuteLitActionResponse>(
+      '/accountkit/v1/telegrambot/executeActionUsingPKP',
       {
-        litActionCode,
-        jsParams,
-        authSig,
+        actionIpfs,
+        actionJsParams,
       },
       {
         headers: {
           'X-TG-BOT-TOKEN': botToken,
+        },
+        params: {
+          chainId,
         },
       },
     );
   }
 
   /**
-   * Mint a Wow.XYZ token
+   * (Telegram Bot Auth) Mint a Wow.XYZ token
    * @param botToken Telegram bot token
-   * @param recipient Recipient address
+   * @param tokenData Token data
+   * @param chainId EVM chain ID
    */
   public async mintWowToken(
     botToken: string,
-    recipient: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.post<Record<string, unknown>>(
+    tokenData: MintWowTokenRequest,
+    chainId: number,
+  ): Promise<ApiResponse<MintWowTokenResponse>> {
+    return this.post<MintWowTokenRequest, MintWowTokenResponse>(
       '/accountkit/v1/telegrambot/wow/mint',
-      {
-        recipient,
-      },
+      tokenData,
       {
         headers: {
           'X-TG-BOT-TOKEN': botToken,
+        },
+        params: {
+          chainId,
         },
       },
     );
@@ -325,14 +367,21 @@ export class AccountKitV2Client extends BaseClient {
 
   /**
    * Get smart account details
-   * @param userId User ID
-   * @param platform Platform (e.g., 'discord', 'telegram')
+   * @param platform Platform (e.g., 'twitter', 'github', 'telegram')
+   * @param accessToken Access token for the platform
    */
   public async getSmartAccountDetails(
-    userId: string,
-    platform: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.get<Record<string, unknown>>(`/accountkit/v2/accounts/${platform}/${userId}`);
+    platform: Platform,
+    accessToken: string,
+  ): Promise<ApiResponse<GetSmartAccountAddressResponse>> {
+    return this.get<GetSmartAccountAddressResponse>(`/accountkit/v2/platform/accounts`, {
+      params: {
+        platform,
+      },
+      headers: {
+        'X-ACCESS-TOKEN': accessToken,
+      },
+    });
   }
 
   /**
@@ -341,52 +390,41 @@ export class AccountKitV2Client extends BaseClient {
    * @param userId Platform-specific user ID
    */
   public async calculateAccountAddress(
-    platform: string,
+    platform: Platform,
     userId: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.post<Record<string, unknown>>('/accountkit/v2/evm/calculateAccountAddress', {
-      platform,
-      userId,
-    });
-  }
-
-  /**
-   * Get accounts using platform authentication
-   * @param platform Platform ('twitter', 'github', 'telegram')
-   * @param platformAccessToken Access token for the platform
-   */
-  public async getAccounts(
-    platform: string,
-    platformAccessToken: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.get<Record<string, unknown>>('/accountkit/v2/accounts', {
-      headers: {
-        'X-PLATFORM': platform,
-        'X-PLATFORM-ACCESS-TOKEN': platformAccessToken,
+  ): Promise<ApiResponse<CalculateAccountAddressResponse>> {
+    return this.post<CalculateAccountAddressRequest, CalculateAccountAddressResponse>(
+      '/accountkit/v2/evm/calculateAccountAddress',
+      {
+        platform,
+        userId,
       },
-    });
+    );
   }
 
   /**
    * Submit an EVM user operation using platform authentication
    * @param platform Platform ('twitter', 'github', 'telegram')
-   * @param platformAccessToken Access token for the platform
+   * @param accessToken Access token for the platform
    * @param userOp User operation object
    * @param chainId EVM chain ID
    */
   public async submitEvmUserOperation(
-    platform: string,
-    platformAccessToken: string,
-    userOp: Record<string, unknown>,
+    platform: Platform,
+    accessToken: string,
+    userOp: PlatformSubmitUserOperationsRequest,
     chainId: number,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.post<Record<string, unknown>>(
-      `/accountkit/v2/evm/submitUserOperation?chainId=${chainId}`,
+  ): Promise<ApiResponse<SubmitEvmUserOpResponse>> {
+    return this.post<PlatformSubmitUserOperationsRequest, SubmitEvmUserOpResponse>(
+      `/accountkit/v2/platform/evm/submitUserOperation`,
       userOp,
       {
         headers: {
-          'X-PLATFORM': platform,
-          'X-PLATFORM-ACCESS-TOKEN': platformAccessToken,
+          'X-ACCESS-TOKEN': accessToken,
+        },
+        params: {
+          chainId,
+          platform,
         },
       },
     );
@@ -395,23 +433,26 @@ export class AccountKitV2Client extends BaseClient {
   /**
    * Submit a Solana transaction using platform authentication
    * @param platform Platform ('twitter', 'github', 'telegram')
-   * @param platformAccessToken Access token for the platform
-   * @param serializedTransactionBase64 Base64 encoded serialized transaction
+   * @param accessToken Access token for the platform
    * @param network Solana network ('SOL' or 'SOL_DEVNET')
+   * @param serializedTransactionBase64 Base64 encoded serialized transaction
    */
   public async submitSolanaTransaction(
-    platform: string,
-    platformAccessToken: string,
+    platform: Platform,
+    accessToken: string,
+    network: SolanaNetwork,
     serializedTransactionBase64: string,
-    network: string,
-  ): Promise<ApiResponse<Record<string, unknown>>> {
-    return this.post<Record<string, unknown>>(
-      `/accountkit/v2/solana/submitTransaction?network=${network}`,
+  ): Promise<ApiResponse<SubmitSolanaTransactionResponse>> {
+    return this.post<SubmitSolanaTransactionRequest, SubmitSolanaTransactionResponse>(
+      `/accountkit/v2/platform/solana/submitTransaction`,
       { serializedTransactionBase64 },
       {
         headers: {
-          'X-PLATFORM': platform,
-          'X-PLATFORM-ACCESS-TOKEN': platformAccessToken,
+          'X-ACCESS-TOKEN': accessToken,
+        },
+        params: {
+          platform,
+          network,
         },
       },
     );
